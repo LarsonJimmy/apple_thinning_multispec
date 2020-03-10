@@ -1,7 +1,7 @@
-# Tree selection: ltr 
+# Tree selection: ltr and MAD determination
 # author: Jimmy Larson
 # created: 3/5/20
-# last edited: 3/7/20
+# last edited: 3/10/20
 
 ## packages----
 library(tidyverse)
@@ -83,9 +83,16 @@ limbs_MAD %>%
   mutate(ltr = lcsa / tcsa.cm) -> limbs_MAD
 MAD_class %>%
   mutate(ltr = lcsa / tcsa.cm) -> MAD_class
+### calculate number of limbs to remove
+limbs.ltr %>%
+  filter(ltr > desir.ltr) %>%
+  group_by(ltr.class, rep, tcsa.cm) %>%
+  count() -> limb.removal.n
+
+MAD_class <- full_join(MAD_class, limb.removal.n, by = c("ltr.class", "rep", "tcsa.cm"))
 ## regress plot max allowable limb diameter against TCSA----
 ###MAD_class_2 <- MAD_class[-7,] ### remove outlier class 3 rep 1 and class 4 
-### lcsa regression
+### lcsa regression----
 lcsa_regression <- lm(lcsa ~ tcsa.cm, data = limbs_MAD)
 glance(lcsa_regression)
 ### remove outliers for class 3 and 5
@@ -98,38 +105,84 @@ lcsa_regression.3 <- lm(lcsa ~ tcsa.cm, data = limbs_MAD.3)
 glance(lcsa_regression.3)
 limbs_MAD %>%
   ggplot()+
-  geom_point(aes(x = tcsa.cm, y = lcsa, color = ltr.class))+
+  geom_point(aes(x = tcsa.cm, y = ltr, color = ltr.class))+
   labs(x = "TCSA (cm)",
-       y = "LCSA (cm)",
+       y = "LTR",
        color = "Trunk Size Class")+
   theme_bw()
 
-limbs_MAD.2 %>%
-  ggplot()+
-  geom_point(aes(x = tcsa.cm, y = lcsa, color = ltr.class))+
+### MAD regression----
+ggplot(MAD_class, aes(x = tcsa.cm, y = MAD))+
+  geom_point(aes(x = tcsa.cm, y = MAD, color = ltr.class))+
+  geom_smooth(method = "lm")+
   labs(x = "TCSA (cm)",
-       y = "LCSA (cm)",
+     y = "Maximum Allowable Limb Diameter (mm)",
+     color = "Trunk Size Class")+
+  theme_bw()
+
+MAD_class$rep <- as.character(MAD_class$rep)
+MAD.regression <- lm(MAD ~ tcsa.cm, data = MAD_class)
+tidy(MAD.regression)
+glance(MAD.regression)
+
+augment(MAD.regression, data = MAD_class) %>%
+  ggplot()+
+  geom_point(aes(x = .fitted, y = MAD, color = ltr.class))+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  labs(x = "MAD (mm) - modeled",
+       y = "MAD (mm) - observed",
+       color = "Trunk Size Class")+
+  annotate(geom = "text", x = 12, y = 16, label = "R^{2}: 0.391", parse = TRUE)+
+  theme_bw()
+
+augment(MAD.regression, data = MAD_class) %>%
+  ggplot()+
+  geom_point(aes(x = MAD, y = .resid, color = ltr.class))+
+  geom_hline(yintercept = 0)+
+  labs(x = "MAD (mm)",
+       y = "Residuals",
        color = "Trunk Size Class")+
   theme_bw()
-### MAD regression
-MAD.regression <- lm(MAD ~ tcsa.cm, data = MAD_class)
-glance(MAD.regression)
-### remove outliers for class 3 and 5
+
+### remove outliers for class 3
 MAD_class.2 <- MAD_class[-c(7),]
 MAD.regression.2 <- lm(MAD ~ tcsa.cm, data = MAD_class.2)
 glance(MAD.regression.2)
+
+augment(MAD.regression.2, data = MAD_class.2) %>%
+  ggplot()+
+  geom_point(aes(x = .fitted, y = MAD, color = ltr.class))+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  labs(x = "MAD (mm) - modeled",
+       y = "MAD (mm) - observed",
+       color = "Trunk Size Class")+
+  annotate(geom = "text", x = 12, y = 16, label = "R^{2}: 0.474", parse = TRUE)+
+  theme_bw()
 ### remove outliers for class 3
 MAD_class.3 <- MAD_class[-c(2,7,10),]
-MAD.regression.3 <- lm(MAD ~ tcsa.cm, data = MAD_class.3)
+MAD.regression.3 <- lm(MAD ~ tcsa.cm + ltr, data = MAD_class.3)
 glance(MAD.regression.3)
 
-MAD_class.3 %>%
-  ggplot()+
-  geom_point(aes(x = tcsa.cm, y = MAD, color = ltr.class))+
-  labs(x = "TCSA (cm)",
-       y = "Maximum Allowable Limb Diameter (mm)",
+### regression for number of limbs to remove
+removal.regression <- lm(n ~ tcsa.cm, data = limb.removal.n)
+glance(removal.regression)
+
+ggplot(MAD_class, aes(x = MAD, y = n, color = ltr.class, label = rep))+
+  geom_point()+
+  geom_text(hjust = 0, nudge_x = 0.08,
+            show.legend = FALSE)+
+  labs(x = "Maximum Allowable Limb Diameter (mm)",
+       y= "Number of Limbs to Remove",
        color = "Trunk Size Class")+
   theme_bw()
+## regress normalized MAD values against TCSA----
+normalize <- function(x) {
+  n <- (x - min(x)) / (max(x) - min(x))
+  return(n)
+}
+MAD_class %>%
+  mutate(tcsa.norm = normalize(tcsa.cm),
+         MAD.norm = normalize(MAD))
 ## write out excel files ----
 write_csv(limbs.ltr, "lcsa_full_dataset.csv")
 write_csv(MAD_class, "MAD_full_dataset.csv")
