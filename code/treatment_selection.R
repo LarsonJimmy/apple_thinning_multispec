@@ -1,11 +1,12 @@
 # Tree selection: ltr and MAD determination
 # author: Jimmy Larson
 # created: 3/5/20
-# last edited: 3/10/20
+# last edited: 3/12/20
 
 ## packages----
 library(tidyverse)
 library(broom)
+library(RColorBrewer)
 ## read in data ----
 trees <- read_csv("data/trees_selected_final.csv")
 limbs <- read_csv("data/ltr_limb_measurements_march_2020.csv")
@@ -183,6 +184,21 @@ normalize <- function(x) {
 MAD_class %>%
   mutate(tcsa.norm = normalize(tcsa.cm),
          MAD.norm = normalize(MAD))
+## limb diameter vs. ltr plot----
+limbs.ltr %>%
+  rename(trunk.class = ltr.class) -> limbs.ltr
+ggplot(limbs.ltr, aes(x = limb.diam.mm, y = ltr, color = as.character(rep)))+
+  geom_point()+
+  facet_wrap(~ trunk.class, labeller = "label_both")+
+  geom_smooth(method = "lm")+
+  scale_fill_brewer(palette = "Set2")+
+  geom_hline(yintercept = 1.25, color = "red")+
+  annotate(geom = "text", x = 5, y = 1.4, label = "ltr = 1.25")+
+  labs(x = "Limb Diameter (mm)",
+       y = "LTR",
+       color = "Rep")+
+  theme_bw()
+  
 ## write out excel files ----
 write_csv(limbs.ltr, "lcsa_full_dataset.csv")
 write_csv(MAD_class, "MAD_full_dataset.csv")
