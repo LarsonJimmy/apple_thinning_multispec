@@ -35,7 +35,10 @@ trees %>%
 trees$tcsa.cm <- as.numeric(trees$tcsa.cm)
 ### write_csv(trees, "data/thinning_multispec_map.csv")
 ## calculate lcsa, arrange limbs low to high, calculate cumulative sum----
-desir.ltr <- 1.25
+desir.ltr <-  1.25
+desir.ltr.df <- as_data_frame(c(1.25))
+desir.ltr.df %>%
+  rename(ltr = value) -> desir.ltr.df
 limbs$ltr.class <- as.character(limbs$ltr.class)
 limbs %>%
   mutate(limb.diam = limb.diam.mm*0.1) %>%
@@ -187,18 +190,49 @@ MAD_class %>%
 ## limb diameter vs. ltr plot----
 limbs.ltr %>%
   rename(trunk.class = ltr.class) -> limbs.ltr
-ggplot(limbs.ltr, aes(x = limb.diam.mm, y = ltr, color = as.character(rep)))+
+ggplot(limbs.ltr, aes(x = ltr, y = limb.diam.mm, color = as.character(rep)))+
   geom_point()+
   facet_wrap(~ trunk.class, labeller = "label_both")+
   geom_smooth(method = "lm")+
   scale_fill_brewer(palette = "Set2")+
-  geom_hline(yintercept = 1.25, color = "red")+
-  annotate(geom = "text", x = 5, y = 1.4, label = "ltr = 1.25")+
+  geom_vline(xintercept = 1.25, color = "red")+
+  #annotate(geom = "text", x = 5, y = 1.4, label = "ltr = 1.25")+
   labs(x = "Limb Diameter (mm)",
        y = "LTR",
        color = "Rep")+
   theme_bw()
-  
+## Limb diam to ltr regression
+limbs.ltr %>%
+  filter(trunk.class == "1") -> class.1.ltr
+class.1.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.1.ltr)
+class.1.MAD.predict <- predict(class.1.ltr.regress, newdata = desir.ltr.df)
+glance(class.1.ltr.regress)
+limbs.ltr %>%
+  filter(trunk.class == "2") -> class.2.ltr
+class.2.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.2.ltr)
+class.2.MAD.predict <-predict(class.2.ltr.regress, newdata = desir.ltr.df)
+glance(class.2.ltr.regress)
+limbs.ltr %>%
+  filter(trunk.class == "3") -> class.3.ltr
+class.3.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.3.ltr)
+class.3.MAD.predict <-predict(class.3.ltr.regress, newdata = desir.ltr.df)
+glance(class.3.ltr.regress)
+limbs.ltr %>%
+  filter(trunk.class == "4") -> class.4.ltr
+class.4.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.4.ltr)
+class.4.MAD.predict <-predict(class.4.ltr.regress, newdata = desir.ltr.df)
+glance(class.4.ltr.regress)
+limbs.ltr %>%
+  filter(trunk.class == "5") -> class.5.ltr
+class.5.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.5.ltr)
+class.5.MAD.predict <-predict(class.5.ltr.regress, newdata = desir.ltr.df)
+glance(class.5.ltr.regress)
+
+### write out MAD values
+MAD_values <- as_data_frame(c(class.1.MAD.predict, class.2.MAD.predict, class.3.MAD.predict,
+                              class.4.MAD.predict, class.5.MAD.predict))
+MAD_values %>%
+  mutate(trunk.class = c(seq(1:5))) -> MAD_values
 ## write out excel files ----
 write_csv(limbs.ltr, "lcsa_full_dataset.csv")
 write_csv(MAD_class, "MAD_full_dataset.csv")
