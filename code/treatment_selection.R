@@ -10,6 +10,7 @@ library(RColorBrewer)
 ## read in data ----
 trees <- read_csv("data/trees_selected_final.csv")
 limbs <- read_csv("data/ltr_limb_measurements_march_2020.csv")
+map <- read_csv("data/apple_multispec_map_final.csv")
 ## assign tree class by trunk----
 trees$tcsa.cm <- format(round(trees$tcsa.cm, 2))
 trees %>%
@@ -179,14 +180,6 @@ ggplot(MAD_class, aes(x = MAD, y = n, color = ltr.class, label = rep))+
        y= "Number of Limbs to Remove",
        color = "Trunk Size Class")+
   theme_bw()
-## regress normalized MAD values against TCSA----
-normalize <- function(x) {
-  n <- (x - min(x)) / (max(x) - min(x))
-  return(n)
-}
-MAD_class %>%
-  mutate(tcsa.norm = normalize(tcsa.cm),
-         MAD.norm = normalize(MAD))
 ## limb diameter vs. ltr plot----
 limbs.ltr %>%
   rename(trunk.class = ltr.class) -> limbs.ltr
@@ -232,8 +225,13 @@ glance(class.5.ltr.regress)
 MAD_values <- as_data_frame(c(class.1.MAD.predict, class.2.MAD.predict, class.3.MAD.predict,
                               class.4.MAD.predict, class.5.MAD.predict))
 MAD_values %>%
+  rename(MAD = value) %>%
   mutate(trunk.class = c(seq(1:5))) -> MAD_values
+map %>%
+  rename(trunk.class = ltr.class) -> map
+map <- full_join(map, MAD_values, by = "trunk.class")
 ## write out excel files ----
 write_csv(limbs.ltr, "lcsa_full_dataset.csv")
 write_csv(MAD_class, "MAD_full_dataset.csv")
 write_csv(MAD_class.3, "MAD_outliers_removed.csv")
+write_csv(map, "apple_multispec_map_MAD.csv")
