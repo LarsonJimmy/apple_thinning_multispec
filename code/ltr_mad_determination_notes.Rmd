@@ -1,8 +1,15 @@
-# Tree selection: ltr and MAD determination
-# author: Jimmy Larson
-# created: 3/5/20
-# last edited: 3/12/20
+---
+title: "LTR and MAD Determination"
+author: "Jimmy Larson"
+date: "3/16/2020"
+output: html_document
+---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r code, include = FALSE}
 ## packages----
 library(tidyverse)
 library(broom)
@@ -17,7 +24,7 @@ trees %>%
   summarise(max = max(tcsa.cm)) -> trees.tcsa.max
 trees %>%
   summarise(min = min(tcsa.cm)) -> trees.tcsa.min
-trees.tcsa.dif <- trees.tcsa.max$max - trees.tcsa.min$min
+#trees.tcsa.dif <- trees.tcsa.max$max - trees.tcsa.min$min
 ltr.class <- seq(trees.tcsa.min$min, trees.tcsa.max$max, length.out = 6)
 ltr.class <- as.data.frame(ltr.class)
 ltr.class %>%
@@ -189,8 +196,9 @@ ggplot(limbs.ltr, aes(x = ltr, y = limb.diam.mm, color = as.character(rep)))+
   geom_smooth(method = "lm")+
   scale_fill_brewer(palette = "Set2")+
   geom_vline(xintercept = 1.25, color = "red")+
-  labs(y = "Limb Diameter (mm)",
-       x = "LTR",
+  #annotate(geom = "text", x = 5, y = 1.4, label = "ltr = 1.25")+
+  labs(x = "Limb Diameter (mm)",
+       y = "LTR",
        color = "Rep")+
   theme_bw()
 ## Limb diam to ltr regression
@@ -229,8 +237,100 @@ MAD_values %>%
 map %>%
   rename(trunk.class = ltr.class) -> map
 map <- full_join(map, MAD_values, by = "trunk.class")
-## write out excel files ----
-write_csv(limbs.ltr, "lcsa_full_dataset.csv")
-write_csv(MAD_class, "MAD_full_dataset.csv")
-write_csv(MAD_class.3, "MAD_outliers_removed.csv")
-write_csv(map, "apple_multispec_map_MAD.csv")
+```
+## Introduction
+
+File describes the steps to determine the maximum allowable limb diameter (MAD) for limb to trunk (LTR) pruning of Gala trees used in apple thinning multispectral imaging study. 
+
+LTR pruning sets a uniform ratio, here we selected 1.25, of limb (fruiting area) to trunk size. This was to ensure that all trees in the study, though different sizes, were pruned to the same severity level. We had 5 tree sizes within the 90 trees in the study, see class size determination file. Three trees were selected for each size class and had all primary limb's diameter measured ~3cm from the base of the trunk on 3/6/20, n = 15. 
+
+## MAD Determination
+
+A number of methods were used to determine the MAD for each tree in the study while only having to measure a portion of the total trees in the study. Initially, the MAD was determined for each tree measured by ordering the limb cross sectional areas (LCSA) from smallest to largest, calculating a running sum of LCSA with each successively larger branch, then calculating LTR by dividing the LCSA by the trunk cross sectional area (TCSA), when the LTR reached 1.25 whichever the branch diameter was was determined to be the MAD.
+
+```{r, echo = FALSE}
+head(limbs.ltr)
+```
+
+The MADs for each tree were therefore determined to be:
+
+```{r, echo = FALSE}
+print(MAD_class)
+```
+
+A regression equation was then determined from MAD and TCSA:
+
+```{r plot, echo = FALSE}
+ggplot(MAD_class, aes(x = tcsa.cm, y = MAD))+
+  geom_point(aes(x = tcsa.cm, y = MAD, color = ltr.class))+
+  geom_smooth(method = "lm")+
+  labs(x = "TCSA (cm)",
+     y = "Maximum Allowable Limb Diameter (mm)",
+     color = "Trunk Size Class")+
+  theme_bw()
+```
+
+The R-squared was however poor:
+
+```{r, echo = FALSE}
+MAD.regression <- lm(MAD ~ tcsa.cm, data = MAD_class)
+glance(MAD.regression)
+```
+
+Due to the variability of the data looking at just MAD, a regression equation was made between overall limb diameter and LTR of the tree within each tree size class:
+
+```{r, echo=FALSE}
+ggplot(limbs.ltr, aes(x = ltr, y = limb.diam.mm, color = as.character(rep)))+
+  geom_point()+
+  facet_wrap(~ trunk.class, labeller = "label_both")+
+  geom_smooth(method = "lm")+
+  scale_fill_brewer(palette = "Set2")+
+  geom_vline(xintercept = 1.25, color = "red")+
+  labs(x = "LTR",
+       y = "Limb Diameter (mm)",
+       color = "Rep")+
+  theme_bw()
+```
+
+```{r, eval=FALSE}
+limbs.ltr %>%
+  filter(trunk.class == "1") -> class.1.ltr
+class.1.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.1.ltr)
+limbs.ltr %>%
+  filter(trunk.class == "2") -> class.2.ltr
+class.2.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.2.ltr)
+limbs.ltr %>%
+  filter(trunk.class == "3") -> class.3.ltr
+class.3.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.3.ltr)
+limbs.ltr %>%
+  filter(trunk.class == "4") -> class.4.ltr
+class.4.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.4.ltr)
+limbs.ltr %>%
+  filter(trunk.class == "5") -> class.5.ltr
+class.5.ltr.regress <- lm(limb.diam.mm ~ ltr, data =  class.5.ltr)
+```
+
+The fit for each of these regression equations was much better:
+
+```{r}
+glance(class.1.ltr.regress)
+glance(class.2.ltr.regress)
+glance(class.3.ltr.regress)
+glance(class.4.ltr.regress)
+glance(class.5.ltr.regress)
+```
+
+The MAD was then determined by predicting the branch diamter at an LTR of 1.25:
+
+```{r, eval=FALSE}
+class.1.MAD.predict <- predict(class.1.ltr.regress, newdata = desir.ltr.df)
+class.2.MAD.predict <-predict(class.2.ltr.regress, newdata = desir.ltr.df)
+class.3.MAD.predict <-predict(class.3.ltr.regress, newdata = desir.ltr.df)
+class.4.MAD.predict <-predict(class.4.ltr.regress, newdata = desir.ltr.df)
+class.5.MAD.predict <-predict(class.5.ltr.regress, newdata = desir.ltr.df)
+
+```
+
+```{r, echo=FALSE}
+print(MAD_values)
+```
