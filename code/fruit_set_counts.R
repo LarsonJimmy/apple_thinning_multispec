@@ -1,0 +1,111 @@
+# Fruit Set Counts
+# author: Jimmy Larson
+# created: 6.11.20
+# last edited: 6.12.20
+
+## packages----
+library(tidyverse)
+library(ggpubr)
+library(car)
+## load data----
+counts <- read_csv("data/apple_multispec_fruit_counts_6_1_2020.csv")
+## select to correct number of spurs per branch----
+counts %>%
+  mutate(lcsa.cm = (((limb.circ.cm/pi) /2)^2)*pi) %>%
+  filter(case_when(spur.prune == 8 & lcsa.cm < .503 ~ spur <= 4,
+                   spur.prune == 8 & .503 <= lcsa.cm & lcsa.cm < .785 ~ spur <= 6,
+                   spur.prune == 8 & .785 <= lcsa.cm & lcsa.cm < 1.54 ~ spur <= 9,
+                   spur.prune == 8 & 1.54 <= lcsa.cm  ~ spur <= 12,
+                   spur.prune == 5 & lcsa.cm < .503 ~ spur <= 3,
+                   spur.prune == 5 & .503 <= lcsa.cm & lcsa.cm < .785 ~ spur <= 4,
+                   spur.prune == 5 & .785 <= lcsa.cm & lcsa.cm < 1.54 ~ spur <= 6,
+                   spur.prune == 5 & 1.54 <= lcsa.cm  ~ spur <= 8,
+                   spur.prune == 2 & lcsa.cm < .503 ~ spur <= 1,
+                   spur.prune == 2 & .503 <= lcsa.cm & lcsa.cm < .785 ~ spur <= 2,
+                   spur.prune == 2 & .785 <= lcsa.cm & lcsa.cm < 1.54 ~ spur <= 2,
+                   spur.prune == 2 & 1.54 <= lcsa.cm  ~ spur <= 3)) -> counts
+## get total branch counts----
+counts %>%
+  group_by(row, plot, tree, spur.prune, branch, lcsa.cm) %>%
+  summarise(fruit.branch = sum(fruit)) -> counts.branch
+## analyze and plot total branch numbers----
+### anova test
+counts.branch.aov <- aov(fruit.branch ~ spur.prune, data = counts.branch)
+summary.aov(counts.branch.aov)
+#### test normality
+plot(counts.branch.aov, 2)
+counts.branch.resid <- residuals(object = counts.branch.aov)
+shapiro.test(x = counts.branch.resid) # did not solve normality problems
+#### test homogeniety of variance
+plot(counts.branch.aov, 1)
+leveneTest(fruit.branch ~ as.factor(spur.prune), data = counts.branch)
+### remove outliers (did not solve normality problems)
+#counts.branch.outlier <- counts.branch[-c(13,48, 60),]
+### anova test
+#counts.branch.aov <- aov(fruit.branch ~ spur.prune, data = counts.branch.outlier)
+#summary.aov(counts.branch.aov)
+#### test normality
+#plot(counts.branch.aov, 2)
+#counts.branch.resid <- residuals(object = counts.branch.aov)
+#shapiro.test(x = counts.branch.resid)
+#### test homogeniety of variance
+#plot(counts.branch.aov, 1)
+#leveneTest(fruit.branch ~ as.factor(spur.prune), data = counts.branch)
+### kruskal wallis test
+kruskal.test(fruit.branch ~ spur.prune, data = counts.branch) # p < 0.05
+### pairwise test
+pairwise.wilcox.test(counts.branch$fruit.branch, counts.branch$spur.prune, p.adjust.method = "BH")
+### plot data
+counts.branch %>%
+  mutate(prune.level = as.factor(spur.prune)) %>%
+  group_by(prune.level) %>%
+  summarise(max = max(fruit.branch)) %>%
+  mutate(sep = c("b", "a", "a"))-> max.fruit
+counts.branch %>%
+  mutate(prune.level = as.factor(spur.prune)) %>%
+  group_by(prune.level) %>%
+  ggplot() +
+  geom_boxplot(aes(x = prune.level, y = fruit.branch, fill = prune.level)) +
+  geom_text(data = max.fruit, aes(x = prune.level, y = max + 0.4, label = sep), vjust=0, color="black",
+            position = position_dodge(.9), size= 5,parse = T) +
+  scale_fill_brewer(palette = "Greens")+
+  labs(x = ~"Spur Pruning Severity - Spurs/LCSA ("*cm^2*")",
+       y = "Fruit per branch")+
+  theme_bw()+
+  theme(legend.position = "none")
+## analyze and plot counts/lcsa----
+### calculate fruit per lcsa
+counts.branch %>%
+  mutate(fruit.lcsa = fruit.branch / lcsa.cm) -> counts.lcsa
+### build anova
+counts.lcsa.aov <- aov(fruit.lcsa ~ spur.prune, data = counts.lcsa)
+summary.aov(counts.lcsa.aov)
+#### test normality
+plot(counts.lcsa.aov, 2)
+counts.lcsa.resid <- residuals(object = counts.lcsa.aov)
+shapiro.test(x = counts.lcsa.resid)
+#### test homogeniety of variance
+plot(counts.lcsa.aov, 1)
+leveneTest(fruit.lcsa ~ as.factor(spur.prune), data = counts.lcsa)
+### kruskal wallis test
+kruskal.test(fruit.lcsa ~ spur.prune, data = counts.lcsa) # p < 0.05
+### pairwise test
+pairwise.wilcox.test(counts.lcsa$fruit.lcsa, counts.lcsa$spur.prune, p.adjust.method = "BH")
+### plot data
+counts.lcsa %>%
+  mutate(prune.level = as.factor(spur.prune)) %>%
+  group_by(prune.level) %>%
+  summarise(max = max(fruit.lcsa)) %>%
+  mutate(sep = c("b", "a", "a"))-> max.lcsa.fruit
+counts.lcsa %>%
+  mutate(prune.level = as.factor(spur.prune)) %>%
+  group_by(prune.level) %>%
+  ggplot() +
+  geom_boxplot(aes(x = prune.level, y = fruit.lcsa, fill = prune.level)) +
+  geom_text(data = max.lcsa.fruit, aes(x = prune.level, y = max + 0.4, label = sep), vjust=0, color="black",
+            position = position_dodge(.9), size= 5,parse = T) +
+  scale_fill_brewer(palette = "Greens")+
+  labs(x = ~"Spur Pruning Severity - Spurs/LCSA ("*cm^2*")",
+       y = ~"Fruit per lcsa ("*cm^2*")")+
+  theme_bw()+
+  theme(legend.position = "none")
