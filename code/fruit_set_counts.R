@@ -1,7 +1,7 @@
 # Fruit Set Counts
 # author: Jimmy Larson
 # created: 6.11.20
-# last edited: 6.12.20
+# last edited: 8.24.20
 
 ## packages----
 library(tidyverse)
@@ -9,6 +9,10 @@ library(ggpubr)
 library(car)
 ## load data----
 counts <- read_csv("data/apple_multispec_fruit_counts_6_1_2020.csv")
+## remove trees that were hand thinned accidentally----
+counts %>%
+  filter(tree %in% c("5", "6", "18", "20", "21", "24", "73", "114",
+                                  "135", "138", "146", "147")) -> counts
 ## select to correct number of spurs per branch----
 counts %>%
   mutate(lcsa.cm = (((limb.circ.cm/pi) /2)^2)*pi) %>%
@@ -23,7 +27,11 @@ counts %>%
                    spur.prune == 2 & lcsa.cm < .503 ~ spur <= 1,
                    spur.prune == 2 & .503 <= lcsa.cm & lcsa.cm < .785 ~ spur <= 2,
                    spur.prune == 2 & .785 <= lcsa.cm & lcsa.cm < 1.54 ~ spur <= 2,
-                   spur.prune == 2 & 1.54 <= lcsa.cm  ~ spur <= 3)) -> counts
+                   spur.prune == 2 & 1.54 <= lcsa.cm  ~ spur <= 1,
+                   spur.prune == "none"  ~ spur <= 14,
+                   spur.prune == "none"  ~ spur <= 14,
+                   spur.prune == "none"  ~ spur <= 14,
+                   spur.prune == "none"  ~ spur <= 14)) -> counts
 ## get total branch counts----
 counts %>%
   group_by(row, plot, tree, spur.prune, branch, lcsa.cm) %>%
@@ -60,7 +68,7 @@ counts.branch %>%
   mutate(prune.level = as.factor(spur.prune)) %>%
   group_by(prune.level) %>%
   summarise(max = max(fruit.branch)) %>%
-  mutate(sep = c("b", "a", "a"))-> max.fruit
+  mutate(sep = c("b", "a", "a", "a"))-> max.fruit
 counts.branch %>%
   mutate(prune.level = as.factor(spur.prune)) %>%
   group_by(prune.level) %>%
@@ -87,16 +95,16 @@ shapiro.test(x = counts.lcsa.resid)
 #### test homogeniety of variance
 plot(counts.lcsa.aov, 1)
 leveneTest(fruit.lcsa ~ as.factor(spur.prune), data = counts.lcsa)
-### kruskal wallis test
-kruskal.test(fruit.lcsa ~ spur.prune, data = counts.lcsa) # p < 0.05
-### pairwise test
-pairwise.wilcox.test(counts.lcsa$fruit.lcsa, counts.lcsa$spur.prune, p.adjust.method = "BH")
+### Tukey Test
+TukeyHSD(counts.lcsa.aov, which = "spur.prune")
+### pairwise.t.test
+pairwise.t.test(counts.lcsa$fruit.lcsa, counts.lcsa$spur.prune, p.adjust.method = "BH")
 ### plot data
 counts.lcsa %>%
   mutate(prune.level = as.factor(spur.prune)) %>%
   group_by(prune.level) %>%
   summarise(max = max(fruit.lcsa)) %>%
-  mutate(sep = c("b", "a", "a"))-> max.lcsa.fruit
+  mutate(sep = c("b", "a", "ab", "a"))-> max.lcsa.fruit
 counts.lcsa %>%
   mutate(prune.level = as.factor(spur.prune)) %>%
   group_by(prune.level) %>%
@@ -107,5 +115,38 @@ counts.lcsa %>%
   scale_fill_brewer(palette = "Greens")+
   labs(x = ~"Spur Pruning Severity - Spurs/LCSA ("*cm^2*")",
        y = ~"Fruit per lcsa ("*cm^2*")")+
+  theme_bw()+
+  theme(legend.position = "none")
+## analyze and plot fruit/spur----
+### build anova
+spur.den.aov <- aov(counts$fruit ~ counts$spur.prune, data = counts)
+summary.aov(spur.den.aov)
+### test normality
+plot(spur.den.aov, 2)
+spur.den.resid <- residuals(object = spur.den.aov)
+shapiro.test(x = spur.den.resid) # p<0.05 
+#### test homogeniety of variance
+plot(spur.den.aov, 1)
+leveneTest(fruit ~ as.factor(spur.prune), data = counts)
+### kruskal wallis test
+kruskal.test(fruit ~ spur.prune, data = counts) # p < 0.05
+### pairwise test
+pairwise.wilcox.test(counts$fruit, counts$spur.prune, p.adjust.method = "BH")
+## plot data
+counts %>%
+  mutate(prune.level = as.factor(spur.prune)) %>%
+  group_by(prune.level) %>%
+  summarise(avg.spur = mean(fruit)) %>%
+  mutate(sep = c("ab", "b", "bc", "a")) -> avg.spur.den
+counts %>%
+  mutate(prune.level = as.factor(spur.prune)) %>%
+  group_by(prune.level) %>%
+  ggplot() +
+  geom_boxplot(aes(x = prune.level, y = fruit, fill = prune.level)) +
+  geom_text(data = avg.spur.den, aes(x = prune.level, y = avg.spur + 3.4, label = sep), vjust=0, color="black",
+            position = position_dodge(.9), size= 5,parse = T) +
+  scale_fill_brewer(palette = "Greens")+
+  labs(x = ~"Spur Pruning Severity - Spurs/LCSA ("*cm^2*")",
+       y = ~"Fruit per Spur")+
   theme_bw()+
   theme(legend.position = "none")
