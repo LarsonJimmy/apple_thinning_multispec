@@ -375,6 +375,21 @@ summary {
 <p>File describes the steps to determine the maximum allowable limb diameter (MAD) for limb to trunk (LTR) pruning of Gala trees used in apple thinning multispectral imaging study.</p>
 <p>LTR pruning sets a uniform ratio, here we selected 1.25, of limb (fruiting area) to trunk size. This was to ensure that all trees in the study, though different sizes, were pruned to the same severity level. We had 5 tree sizes within the 90 trees in the study, see class size determination file. Three trees were selected for each size class and had all primary limb’s diameter measured ~3cm from the base of the trunk on 3/6/20, n = 15.</p>
 </div>
+<div id="tree-class-size" class="section level2">
+<h2>Tree Class Size</h2>
+<p>To group trees into class sizes, the 90 trees in the study were divided into 6 equal groups:</p>
+<pre class="r"><code>ltr.class &lt;- seq(trees.tcsa.min$min, trees.tcsa.max$max, length.out = 6)
+ltr.class &lt;- as.data.frame(ltr.class)
+ltr.class %&gt;%
+  mutate(class.id = seq(1,6))</code></pre>
+<pre><code>##   ltr.class class.id
+## 1    11.650        1
+## 2    13.706        2
+## 3    15.762        3
+## 4    17.818        4
+## 5    19.874        5
+## 6    21.930        6</code></pre>
+</div>
 <div id="mad-determination" class="section level2">
 <h2>MAD Determination</h2>
 <p>A number of methods were used to determine the MAD for each tree in the study while only having to measure a portion of the total trees in the study. Initially, the MAD was determined for each tree measured by ordering the limb cross sectional areas (LCSA) from smallest to largest, calculating a running sum of LCSA with each successively larger branch, then calculating LTR by dividing the LCSA by the trunk cross sectional area (TCSA), when the LTR reached 1.25 whichever the branch diameter was was determined to be the MAD.</p>

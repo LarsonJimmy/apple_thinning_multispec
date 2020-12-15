@@ -15,15 +15,20 @@ trunks.init$row <- as.factor(trunks.init$row)
 ## plot tcsa variability----
 ggplot(trunks.init, aes(x = row, y = tcsa.cm))+
   geom_boxplot()+
-  theme_bw()
-
-ggplot(trunks, aes(x = tree, y = tcsa.cm, colour = row))+
-  geom_point()+
+  labs(x = "Row",
+       y = ~"TCSA ("*cm^2*")")+
   theme_bw()
 
 ## remove outliers ----
 trunks.init %>%
   filter(tcsa.cm > quantile(tcsa.cm, 0.08),
          tcsa.cm < quantile(tcsa.cm, 0.92)) -> trunks
+
+## plot variability ----
+ggplot(trunks, aes(x = tree, y = tcsa.cm, colour = row))+
+  geom_point()+
+  labs(x = "Tree",
+       y = ~"TCSA ("*cm^2*")")+
+  theme_bw()
 ## write file for selected trees----
 write_csv(trunks, "trunks_selected_final.csv")
