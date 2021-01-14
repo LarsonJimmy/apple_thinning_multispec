@@ -7,6 +7,11 @@
 library(tidyverse)
 library(ggpubr)
 library(car)
+library(hrbrthemes)
+library(sjPlot)
+library(RColorBrewer)
+## load theme----
+theme_jl <- theme_ipsum_ps(grid="XY", axis="xy", axis_text_size = 10, axis_title_size = 11, axis_col = "black")
 ## load data----
 counts <- read_csv("data/apple_multispec_fruit_counts_6_1_2020.csv")
 ## remove trees that were hand thinned accidentally----
@@ -115,8 +120,9 @@ counts.lcsa %>%
   scale_fill_brewer(palette = "Greens")+
   labs(x = ~"Spur Pruning Severity - Spurs/LCSA ("*cm^2*")",
        y = ~"Fruit per lcsa ("*cm^2*")")+
-  theme_bw()+
+  theme_jl+
   theme(legend.position = "none")
+#ggsave("figs/fruit_lcsa.png")
 ## analyze and plot fruit/spur----
 ### build anova
 spur.den.aov <- aov(counts$fruit ~ counts$spur.prune, data = counts)
@@ -148,5 +154,25 @@ counts %>%
   scale_fill_brewer(palette = "Greens")+
   labs(x = ~"Spur Pruning Severity - Spurs/LCSA ("*cm^2*")",
        y = ~"Fruit per Spur")+
-  theme_bw()+
+  theme_jl+
   theme(legend.position = "none")
+#ggsave("figs/fruit_spur.png")
+## regression----
+counts$spur.prune <- factor(counts$spur.prune, levels = c("none", "8", "5", "2"))
+counts.lcsa$spur.prune <- factor(counts.lcsa$spur.prune, levels = c("none", "8", "5", "2"))
+### fruit per spur
+spur.model <- lm(fruit ~ spur.prune, data = counts)
+summary(spur.model)
+
+plot_model(spur.model, type = "eff", show.data = TRUE, jitter = .5, colors = "Set2",
+           axis.title = c("Spur Pruning Severity - Spurs/LCSA", "Fruit per Spur"),
+           title = "Observed and Predicted Values for Fruit per Spur")
+ggsave("figs/fruit_spur.png")
+### fruit per lcsa
+branch.model <- lm(fruit.lcsa ~ spur.prune, data = counts.lcsa)
+summary(branch.model)
+
+plot_model(branch.model, type = "eff", show.data = TRUE, jitter = .5, colors = "Set2",
+           axis.title = c("Spur Pruning Severity - Spurs/LCSA", "Fruit per LCSA"),
+           title = "Observed and Predicted Values for Fruit per LCSA")
+ggsave("figs/fruit_lcsa.png")

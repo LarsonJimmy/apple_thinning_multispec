@@ -8,6 +8,8 @@ library(tidyverse)
 library(ggpubr)
 library(car)
 library(hrbrthemes)
+#install.packages("sjPlot")
+library(sjPlot)
 ## load theme----
 theme_jl <- theme_ipsum_ps(grid="XY", axis="xy", axis_text_size = 10, axis_title_size = 11, axis_col = "black")
 ## load data----
@@ -24,8 +26,7 @@ harvest %>%
   mutate(spur.prune = case_when(ASE == "ASE8" ~ "8",
                                 ASE == "ASE5" ~ "5",
                                 ASE == "ASE2" ~ "2",
-                                ASE == "ASEINF" ~ "none",
-                                ASE == "TREE73" ~ "5")) -> harvest
+                                ASE == "ASEINF" ~ "None")) -> harvest
 ## remove invalid rows----
 harvest %>%
   filter(!Diameter == "__invalid__") %>%
@@ -34,6 +35,10 @@ harvest %>%
          blush = as.numeric(BlushPercentage),
          length = as.numeric(Length)) %>%
   select(harvest_date, row, rep, spur.prune, tree, ClassName, weight, blush, diameter, AppleQuality, length) -> harvest
+## calculate yield per tree
+harvest %>%
+  group_by(row, rep, spur.prune,tree) %>%
+  summarise(yield= (sum(weight)/1000)) -> yield
 ## exploratory graphs----
 ### fruit size
 harvest %>%
@@ -68,3 +73,32 @@ harvest %>%
        y = "Fruit Weight")+
   theme_jl+
   theme(legend.position = "none")
+## regression----
+harvest$spur.prune <- factor(harvest$spur.prune, levels = c("None", "8", "5", "2"))
+yield$spur.prune <- factor(yield$spur.prune, levels = c("None", "8", "5", "2"))
+### yield 
+yield.model <- lm(yield ~ spur.prune, data = yield)
+summary(yield.model)
+
+plot_model(yield.model, show.data = TRUE, jitter = .5, colors = "Set1",
+           axis.title = c( "Yield/tree (kg)"),
+           title = "Yield per Tree",
+           axis.labels = c("8 buds/LCSA", "5 buds/LCSA", "2 buds/LCSA"))
+#ggsave("figs/yield.png")
+### fruit size
+size.model <- lm(diameter ~ spur.prune, data = harvest)
+summary(size.model)
+
+plot_model(size.model, type = "eff", show.data = TRUE, jitter = .5, colors = "Set2",
+           axis.title = c("Spur Pruning Severity - Spurs/LCSA", "Fruit Diameter (mm)"),
+           title = "Observed and Predicted Values for Fruit Diameter")
+#ggsave("figs/size.png")
+### blush
+blush.model <- lm(blush ~ spur.prune, data = harvest)
+summary(blush.model)
+
+plot_model(blush.model, type = "eff", show.data = TRUE, jitter = .5, colors = "Set1",
+           axis.title = c("Spur Pruning Severity - Spurs/LCSA", "Fruit Blush (%)"),
+           title = "Observed and Predicted Values for Fruit Blush")
+#ggsave("figs/blush.png")
+
